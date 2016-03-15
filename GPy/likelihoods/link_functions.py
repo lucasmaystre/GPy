@@ -83,6 +83,25 @@ class Probit(GPTransformation):
         return (safe_square(f)-1.)*std_norm_pdf(f)
 
 
+class Logit(GPTransformation):
+    """
+    .. math::
+
+        g(f) = \\frac{1}{1 + e^{-\mu}}
+
+    """
+    def transf(self,f):
+        return 1.0 / (1.0 + safe_exp(-f))
+
+    def dtransf_df(self,f):
+        mu = self.transf(f)
+        return mu * (1.0 - mu)
+
+    def d2transf_df2(self,f):
+        mu = self.transf(f)
+        return mu * (1.0 - mu) * (1.0 - 2*mu)
+
+
 class Cloglog(GPTransformation):
     """
     Complementary log-log link

@@ -3,8 +3,10 @@
 
 import numpy as np
 from ..util.univariate_Gaussian import std_norm_pdf, std_norm_cdf
+from ..util.misc import safe_exp
 from . import link_functions
 from .likelihood import Likelihood
+from .logit_ext import logit_match_moments, probit_match_moments
 
 class Bernoulli(Likelihood):
     """
@@ -26,7 +28,9 @@ class Bernoulli(Likelihood):
 
         super(Bernoulli, self).__init__(gp_link, 'Bernoulli')
 
-        if isinstance(gp_link , (link_functions.Heaviside, link_functions.Probit)):
+        if isinstance(gp_link , (link_functions.Heaviside,
+                                 link_functions.Probit,
+                                 link_functions.Logit)):
             self.log_concave = True
 
     def _preprocess_values(self, Y):
@@ -65,6 +69,15 @@ class Bernoulli(Likelihood):
 
             mu_hat = v_i/tau_i + sign*phi/(Z_hat*np.sqrt(tau_i**2 + tau_i))
             sigma2_hat = 1./tau_i - (phi/((tau_i**2+tau_i)*Z_hat))*(z+phi/Z_hat)
+
+        elif isinstance(self.gp_link, link_functions.Logit):
+            mean_cav = v_i / tau_i
+            cov_cav = 1.0 / tau_i
+            logpart, dlogpart, d2logpart = logit_match_moments(mean_cav, cov_cav)
+            sigma2_hat = (-d2logpart / (1 + d2logpart / tau_i) + tau_i)**-1
+            mu_hat = sigma2_hat * ((dlogpart - (v_i / tau_i) * d2logpart)
+                                   / (1.0 + d2logpart / tau_i) + v_i)
+            Z_hat = safe_exp(logpart)
 
         elif isinstance(self.gp_link, link_functions.Heaviside):
             a = sign*v_i/np.sqrt(tau_i)
