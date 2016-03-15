@@ -122,6 +122,13 @@ class Bernoulli(Likelihood):
         if isinstance(self.gp_link, link_functions.Probit):
             return std_norm_cdf(mu/np.sqrt(1+variance))
 
+        elif isinstance(self.gp_link, link_functions.Logit):
+            assert mu.size == 1 and variance.size == 1
+            mu = float(mu.squeeze())
+            variance = float(variance.squeeze())
+            logpart, dlogpart, d2logpart = logit_match_moments(mu, variance)
+            return np.array([[safe_exp(logpart)]])
+
         elif isinstance(self.gp_link, link_functions.Heaviside):
             return std_norm_cdf(mu/np.sqrt(variance))
 
