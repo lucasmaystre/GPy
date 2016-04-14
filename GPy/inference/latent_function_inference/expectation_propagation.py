@@ -9,7 +9,7 @@ from ...util import diag
 log_2_pi = np.log(2*np.pi)
 
 class EPBase(object):
-    def __init__(self, epsilon=1e-6, eta=1., delta=1., always_reset=False):
+    def __init__(self, epsilon=1e-6, eta=1., delta=1., always_reset=False, parallel=False):
         """
         The expectation-propagation algorithm.
         For nomenclature see Rasmussen & Williams 2006.
@@ -21,10 +21,13 @@ class EPBase(object):
         :param delta: damping EP updates factor.
         :type delta: float64
         :param always_reset: setting to always reset the approximation at the beginning of every inference call.
-        :type always_reest: boolean
+        :type always_reset: boolean
+        :param parallel: update the covariance matrix only after each epoch.
+        :type parallel: boolean
 
         """
         super(EPBase, self).__init__()
+        self.parallel = parallel
         self.always_reset = always_reset
         self.epsilon, self.eta, self.delta = epsilon, eta, delta
         self.reset()
@@ -117,9 +120,10 @@ class EP(EPBase, ExactGaussianInference):
                 tau_tilde[i] += delta_tau
                 v_tilde[i] += delta_v
                 #Posterior distribution parameters update
-                ci = delta_tau/(1.+ delta_tau*Sigma[i,i])
-                DSYR(Sigma, Sigma[:,i].copy(), -ci)
-                mu = np.dot(Sigma, v_tilde)
+                if not self.parallel:
+                    ci = delta_tau/(1.+ delta_tau*Sigma[i,i])
+                    DSYR(Sigma, Sigma[:,i].copy(), -ci)
+                    mu = np.dot(Sigma, v_tilde)
 
             #(re) compute Sigma and mu using full Cholesky decompy
             tau_tilde_root = np.sqrt(tau_tilde)
