@@ -30,7 +30,8 @@ class Bernoulli(Likelihood):
 
         if isinstance(gp_link , (link_functions.Heaviside,
                                  link_functions.Probit,
-                                 link_functions.Logit)):
+                                 link_functions.Logit,
+                                 link_functions.RaoKupper)):
             self.log_concave = True
 
     def _preprocess_values(self, Y):
@@ -70,10 +71,15 @@ class Bernoulli(Likelihood):
             mu_hat = v_i/tau_i + sign*phi/(Z_hat*np.sqrt(tau_i**2 + tau_i))
             sigma2_hat = 1./tau_i - (phi/((tau_i**2+tau_i)*Z_hat))*(z+phi/Z_hat)
 
-        elif isinstance(self.gp_link, link_functions.Logit):
+        elif isinstance(self.gp_link,
+                (link_functions.Logit, link_functions.RaoKupper)):
             mean_cav = v_i / tau_i
             cov_cav = 1.0 / tau_i
-            logpart, dlogpart, d2logpart = logit_match_moments(mean_cav, cov_cav)
+            if isinstance(self.gp_link, link_functions.RaoKupper):
+                logpart, dlogpart, d2logpart = logit_match_moments(
+                    mean_cav - self.gp_link.alpha, cov_cav)
+            else:
+                logpart, dlogpart, d2logpart = logit_match_moments(mean_cav, cov_cav)
             sigma2_hat = (-d2logpart / (1 + d2logpart / tau_i) + tau_i)**-1
             mu_hat = sigma2_hat * ((dlogpart - (v_i / tau_i) * d2logpart)
                                    / (1.0 + d2logpart / tau_i) + v_i)
@@ -122,11 +128,16 @@ class Bernoulli(Likelihood):
         if isinstance(self.gp_link, link_functions.Probit):
             return std_norm_cdf(mu/np.sqrt(1+variance))
 
-        elif isinstance(self.gp_link, link_functions.Logit):
+        elif isinstance(self.gp_link,
+                (link_functions.Logit, link_functions.RaoKupper)):
             assert mu.size == 1 and variance.size == 1
             mu = float(mu.squeeze())
             variance = float(variance.squeeze())
-            logpart, dlogpart, d2logpart = logit_match_moments(mu, variance)
+            if isinstance(self.gp_link, link_functions.RaoKupper):
+                logpart, dlogpart, d2logpart = logit_match_moments(
+                    mu - self.gp_link.alpha, variance)
+            else:
+                logpart, dlogpart, d2logpart = logit_match_moments(mu, variance)
             return np.array([[safe_exp(logpart)]])
 
         elif isinstance(self.gp_link, link_functions.Heaviside):

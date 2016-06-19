@@ -102,6 +102,17 @@ class Logit(GPTransformation):
         return mu * (1.0 - mu) * (1.0 - 2*mu)
 
 
+class RaoKupper(GPTransformation):
+    """
+    .. math::
+
+        g(f) = \\frac{1}{1 + e^{-(\\mu - \\alpha)}}
+
+    """
+    def __init__(self, alpha):
+        self.alpha = alpha
+
+
 class Cloglog(GPTransformation):
     """
     Complementary log-log link
