@@ -3,7 +3,6 @@
 import sys
 import numpy as np
 from ...core.parameterization.parameterized import Parameterized
-from paramz.core.observable_array import ObsAr
 from paramz.caching import Cache_this
 from .kernel_slice_operations import KernCallsViaSlicerMeta
 from functools import reduce
@@ -15,10 +14,10 @@ class Kern(Parameterized):
     # This adds input slice support. The rather ugly code for slicing can be
     # found in kernel_slice_operations
     # __meataclass__ is ignored in Python 3 - needs to be put in the function definiton
-    #__metaclass__ = KernCallsViaSlicerMeta
-    #Here, we use the Python module six to support Py3 and Py2 simultaneously
+    # __metaclass__ = KernCallsViaSlicerMeta
+    # Here, we use the Python module six to support Py3 and Py2 simultaneously
     #===========================================================================
-    _support_GPU=False
+    _support_GPU = False
     def __init__(self, input_dim, active_dims, name, useGPU=False, *a, **kw):
         """
         The base class for a kernel: a positive definite function
@@ -47,11 +46,11 @@ class Kern(Parameterized):
         self.input_dim = int(input_dim)
 
         if active_dims is None:
-            active_dims = np.arange(input_dim)
+            active_dims = np.arange(input_dim, dtype=np.int_)
 
-        self.active_dims = np.asarray(active_dims, np.int_)
+        self.active_dims = np.atleast_1d(np.asarray(active_dims, np.int_))
 
-        self._all_dims_active = np.atleast_1d(self.active_dims).astype(int)
+        self._all_dims_active = np.atleast_1d(self.active_dims).astype(np.int_)
 
         assert self.active_dims.size == self.input_dim, "input_dim={} does not match len(active_dim)={}".format(self.input_dim, self._all_dims_active.size)
 
@@ -62,7 +61,7 @@ class Kern(Parameterized):
         self.psicomp = PSICOMP_GH()
 
     def __setstate__(self, state):
-        self._all_dims_active = np.arange(0, max(state['active_dims'])+1)
+        self._all_dims_active = np.arange(0, max(state['active_dims']) + 1)
         super(Kern, self).__setstate__(state)
 
     @property
@@ -132,18 +131,18 @@ class Kern(Parameterized):
         raise NotImplementedError
     def gradients_X_X2(self, dL_dK, X, X2):
         return self.gradients_X(dL_dK, X, X2), self.gradients_X(dL_dK.T, X2, X)
-    def gradients_XX(self, dL_dK, X, X2):
+    def gradients_XX(self, dL_dK, X, X2, cov=True):
         """
         .. math::
 
             \\frac{\partial^2 L}{\partial X\partial X_2} = \\frac{\partial L}{\partial K}\\frac{\partial^2 K}{\partial X\partial X_2}
         """
-        raise(NotImplementedError, "This is the second derivative of K wrt X and X2, and not implemented for this kernel")
-    def gradients_XX_diag(self, dL_dKdiag, X):
+        raise NotImplementedError("This is the second derivative of K wrt X and X2, and not implemented for this kernel")
+    def gradients_XX_diag(self, dL_dKdiag, X, cov=True):
         """
         The diagonal of the second derivative w.r.t. X and X2
         """
-        raise(NotImplementedError, "This is the diagonal of the second derivative of K wrt X and X2, and not implemented for this kernel")
+        raise NotImplementedError("This is the diagonal of the second derivative of K wrt X and X2, and not implemented for this kernel")
     def gradients_X_diag(self, dL_dKdiag, X):
         """
         The diagonal of the derivative w.r.t. X
@@ -211,6 +210,12 @@ class Kern(Parameterized):
     def input_sensitivity(self, summarize=True):
         """
         Returns the sensitivity for each dimension of this kernel.
+
+        This is an arbitrary measurement based on the parameters
+        of the kernel per dimension and scaling in general.
+
+        Use this as relative measurement, not for absolute comparison between
+        kernels.
         """
         return np.zeros(self.input_dim)
 
@@ -292,11 +297,11 @@ class Kern(Parameterized):
         """
         assert isinstance(other, Kern), "only kernels can be multiplied to kernels..."
         from .prod import Prod
-        #kernels = []
-        #if isinstance(self, Prod): kernels.extend(self.parameters)
-        #else: kernels.append(self)
-        #if isinstance(other, Prod): kernels.extend(other.parameters)
-        #else: kernels.append(other)
+        # kernels = []
+        # if isinstance(self, Prod): kernels.extend(self.parameters)
+        # else: kernels.append(self)
+        # if isinstance(other, Prod): kernels.extend(other.parameters)
+        # else: kernels.append(other)
         return Prod([self, other], name)
 
     def _check_input_dim(self, X):
